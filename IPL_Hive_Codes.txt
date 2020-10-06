@@ -1,0 +1,116 @@
+/*
+Context: Indian Premier League (IPL) is a Twenty20 cricket format league in India. It is usually played in April and May every year. The league was founded by Board of Control for Cricket India (BCCI) in 2008.
+Content: Data till Season 11 (2008 - 2019), matches_ipl.csv - Match by match data, deliveries_ipl.csv - Ball by ball data
+It can be used to draw analysis, player/team performance, apply and learn statistical methods on real data.
+*/
+
+-----------HADOOP HIVE-------------------
+
+hdfs dfsadmin -safemode leave
+hive
+hive> create database ipl_db; --create a databse to store all files and tables--
+hive> use ipl_db; --activate the databse for following queries--
+hive> CREATE TABLE matches_ipl ( id STRING, season STRING, city STRING, date_of_match STRING, team1 STRING, team2 STRING, toss_winner STRING, toss_decision STRING, result STRING, dl_applied STRING, winner STRING, win_by_runs STRING, win_by_wickets STRING, player_of_match STRING, venue STRING, umpire1 STRING, umpire2 STRING, umpire3 STRING) ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' LINES TERMINATED BY '\n';
+hive> CREATE TABLE deliveries_ipl ( matchid STRING, inning STRING, batting_team STRING, bowling_team STRING, overs STRING, ball STRING, batsman STRING, non_striker STRING, bowler STRING, is_super_over STRING, wide_runs STRING, bye_runs STRING, leg_bye_runs STRING, no_ball_runs STRING, penalty_runs STRING, batsman_runs STRING, extra_runs STRING, total_runs STRING, player_dismissed STRING, dismissal_kind STRING, fielder STRING) ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' LINES TERMINATED BY '\n';
+hive> LOAD DATA LOCAL INPATH '/home/cloudera/Downloads/matches.csv' OVERWRITE INTO TABLE matches_ipl; --load the csv file into blank table created above--
+hive> LOAD DATA LOCAL INPATH '/home/cloudera/Downloads/deliveries.csv' OVERWRITE INTO TABLE deliveries_ipl; --load the csv file into blank table created above--
+
+hive> show tables; --display table names in the database--
+deliveries_ipl
+matches_ipl
+
+hive> select * from matches_ipl limit 5; --display top 5 entries of the table--
+/*
+id	season	city	date	team1	team2	toss_winner	toss_decision	result	dl_applied	winner	win_by_runs	win_by_wickets	player_of_match	venue	umpire1	umpire2	umpire3
+1	2017	Hyderabad	05-04-2017	Sunrisers Hyderabad	Royal Challengers Bangalore	Royal Challengers Bangalore	field	normal	0	Sunrisers Hyderabad	35	0	Yuvraj Singh	Rajiv Gandhi International Stadium, Uppal	AY Dandekar	NJ Llong	
+2	2017	Pune	06-04-2017	Mumbai Indians	Rising Pune Supergiant	Rising Pune Supergiant	field	normal	0	Rising Pune Supergiant	0	7	SPD Smith	Maharashtra Cricket Association Stadium	A Nand Kishore	S Ravi	
+3	2017	Rajkot	07-04-2017	Gujarat Lions	Kolkata Knight Riders	Kolkata Knight Riders	field	normal	0	Kolkata Knight Riders	0	10	CA Lynn	Saurashtra Cricket Association Stadium	Nitin Menon	CK Nandan	
+4	2017	Indore	08-04-2017	Rising Pune Supergiant	Kings XI Punjab	Kings XI Punjab	field	normal	0	Kings XI Punjab	0	6	GJ Maxwell	Holkar Cricket Stadium	AK Chaudhary	C Shamshuddin	
+*/
+
+hive> select * from deliveries_ipl limit 5; --display top 5 entries of the table--
+/*
+id	inning	batting_team	bowling_team	over	ball	batsman	non_striker	bowler	is_super_over	wide_runs	bye_runs	legbye_runs	noball_runs	penalty_runs	batsman_runs	extra_runs	total_runs	player_dismissed	dismissal_kind	fielder
+1	1	Sunrisers Hyderabad	Royal Challengers Bangalore	1	1	DA Warner	S Dhawan	TS Mills	0	0	0	0	0	0	0	0	0			
+1	1	Sunrisers Hyderabad	Royal Challengers Bangalore	1	2	DA Warner	S Dhawan	TS Mills	0	0	0	0	0	0	0	0	0			
+1	1	Sunrisers Hyderabad	Royal Challengers Bangalore	1	3	DA Warner	S Dhawan	TS Mills	0	0	0	0	0	0	4	0	4			
+1	1	Sunrisers Hyderabad	Royal Challengers Bangalore	1	4	DA Warner	S Dhawan	TS Mills	0	0	0	0	0	0	0	0	0			
+*/
+
+hive> CREATE TABLE total_match  as SELECT COUNT(*) as matches FROM matches_ipl; --gives table of overall total no. of matches played in IPL--
+hive> CREATE TABLE toss_win as SELECT toss_winner, winner from matches_ipl; --gives table of toss winning team and corresponding match winning team per match--
+
+hive> SELECT COUNT(DISTINCT(player_of_match)) FROM matches_ipl; --shows how many players have won man of the match award--
+--228--
+
+hive> CREATE TABLE WINS_BY_MOST_RUNS AS SELECT * FROM matches_ipl ORDER BY win_by_runs DESC LIMIT 10; --details of top 10 matches won by most runs--
+
+hive> SELECT MAX(win_by_runs) FROM matches_ipl; --maximum runs by which a team won a match in IPL--
+--146--
+
+hive> SELECT SUM(extra_runs) FROM deliveries_ipl; --total number of extra runs given in IPL--
+--12004--
+
+hive> select avg(win_by_runs) from matches_ipl; --average runs by which a team batting first wins the match--
+--13.283068783068783--
+
+hive> select sum(batsman_runs) from deliveries_ipl where batsman='MS Dhoni'; --total runs scored by MS Dhoni in IPL-- 
+--4477--
+
+hive> select count(total_runs) from deliveries_ipl where total_runs=4 or total_runs=6; --total boundaries hit in IPL--
+--28747--
+
+hive> Create table most_runs_win_seasonwise as select season,max(win_by_runs) from matches_ipl group by season order by season; --season wise most runs by which a team won a match--
+hive> create table boundaries_per_team as select batting_team, count(total_runs) as no_of_boundaries from deliveries_ipl where total_runs=4 or total_runs=6 group by batting_team order by no_of_boundaries desc; --boundaries hit per team in IPL--
+hive> create table  most_extras_per_bowler as select bowler, sum(extra_runs) as total_extra_runs from deliveries_ipl group by bowler order by total_extra_runs desc limit 10; --top 10 bowlers who conceded most extra runs--
+
+hive> create table most_runs as select a.season, b.batsman, b.total_runs, b.inning from matches_ipl a left outer join deliveries_ipl b on (a.id=b.matchid);
+hive> CREATE TABLE most_runs_1 AS SELECT season, batsman, sum(total_runs) as sum_runs FROM most_runs GROUP BY SEASON, BATSMAN;
+hive> create table top_scorer_seasonwise as select * from (select batsman, season, sum_runs, row_number() over (partition by season order by sum_runs desc) as row_no from most_runs_1) res where res.row_no = 1; --season wise top run scorer batsman--
+
+hive> show tables --shows all tables in current database--;
+/*
+boundaries_per_team
+deliveries_ipl
+ipl_data
+matches_ipl
+most_extras_per_bowler
+most_runs
+most_runs_1
+most_runs_win_seasonwise
+top_scorer_seasonwise
+toss_win
+total_match
+wins_by_most_runs
+*/
+
+hive> SELECT COUNT(player_dismissed) AS total_wickets FROM deliveries_ipl WHERE player_dismissed != ''; --total dismissals in IPL--
+--8835--
+
+hive> SELECT bowler, COUNT(player_dismissed) as total_wickets FROM deliveries_ipl WHERE player_dismissed != '' GROUP BY bowler ORDER BY total_wickets desc LIMIT 10; --top 10 most wicket taking bowlers--
+/*
+SL Malinga	188
+DJ Bravo	168
+A Mishra	165
+Harbhajan Singh	161
+PP Chawla	156
+B Kumar	141
+R Ashwin	138
+SP Narine	137
+UT Yadav	136
+R Vinay Kumar	127
+*/
+
+hive> SELECT batsman, COUNT(batsman_runs) as total_boundaries FROM deliveries_ipl WHERE batsman_runs = 6 OR batsman_runs = 4 GROUP BY batsman ORDER BY total_boundaries desc LIMIT 10; --top 10 batsmen with most boundaries hit in IPL-- 
+/*
+CH Gayle	703
+SK Raina	690
+V Kohli	673
+DA Warner	640
+RG Sharma	625
+S Dhawan	622
+RV Uthappa	592
+AB de Villiers	571
+G Gambhir	551
+SR Watson	521
+*/
